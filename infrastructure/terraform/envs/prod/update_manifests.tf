@@ -149,5 +149,10 @@ patches:
         name: mediguide-sa
         annotations:
           eks.amazonaws.com/role-arn: "${module.irsa_eso.role_arn}"
+
+images:
+  - name: mediguide
+    newName: ${module.ecr.repository_url}
+    newTag: latest
 EOT
 }

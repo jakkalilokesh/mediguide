@@ -222,8 +222,8 @@ module "irsa_eso" {
   role_name            = "external-secrets"
   oidc_provider_arn    = module.eks.oidc_provider_arn
   oidc_provider_url    = module.eks.oidc_provider_url
-  namespace            = var.environment
-  service_account_name = "external-secrets-sa"
+  namespace            = "mediguide"
+  service_account_name = "mediguide-sa"
 
   policy_json = jsonencode({
     Version = "2012-10-17"

@@ -60,6 +60,6 @@ variable "db_multi_az" {
 
 variable "git_repo_url" {
   type        = string
-  default     = "https://github.com/mediguide/mediguide.git"
+  default     = "https://github.com/jakkalilokesh/mediguide.git"
   description = "The repository URL for ArgoCD to pull K8s manifests from"
 }
