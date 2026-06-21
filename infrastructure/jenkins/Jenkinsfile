@@ -97,7 +97,7 @@ pipeline {
         stage('ECR Push') {
             steps {
                 echo 'Pushing Docker image to AWS ECR...'
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID]]) {
+                withCredentials([usernamePassword(credentialsId: env.AWS_CREDENTIALS_ID, usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh "aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
                     sh "docker tag ${IMAGE_NAME}:${GIT_SHA} ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${GIT_SHA}"
                     sh "docker tag ${IMAGE_NAME}:${GIT_SHA} ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:latest"
@@ -111,7 +111,7 @@ pipeline {
             steps {
                 echo 'Running Terraform plan & apply for production infrastructure...'
                 dir('infrastructure/terraform/envs/prod') {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID]]) {
+                    withCredentials([usernamePassword(credentialsId: env.AWS_CREDENTIALS_ID, usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                         sh 'terraform init'
                         sh 'terraform validate'
                         sh "terraform plan -var='git_repo_url=${GIT_REPO_URL}' -var='aws_region=${AWS_DEFAULT_REGION}' -var='project_name=${IMAGE_NAME}' -out=tfplan"
@@ -144,7 +144,7 @@ pipeline {
         stage('Smoke Test Rollout') {
             steps {
                 echo 'Monitoring deployment and running smoke tests...'
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID]]) {
+                withCredentials([usernamePassword(credentialsId: env.AWS_CREDENTIALS_ID, usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     // Update local kubeconfig to EKS
                     sh "aws eks update-kubeconfig --region ${AWS_DEFAULT_REGION} --name ${IMAGE_NAME}"
                     // Rollout status watch
