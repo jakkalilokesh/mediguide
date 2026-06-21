@@ -231,6 +231,7 @@ app.use(helmet({
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "https:"],
             connectSrc: ["'self'"],
+            upgradeInsecureRequests: null,
         }
     },
     crossOriginEmbedderPolicy: false,
