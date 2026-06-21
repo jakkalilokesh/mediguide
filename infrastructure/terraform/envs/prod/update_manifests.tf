@@ -107,7 +107,7 @@ spec:
           value: 'true'
         - name: serviceAccount.name
           value: aws-load-balancer-controller
-        - name: serviceAccount.annotations."eks\.amazonaws\.com/role-arn"
+        - name: 'serviceAccount.annotations.eks\.amazonaws\.com/role-arn'
           value: ${module.irsa_alb.role_arn}
   destination:
     server: 'https://kubernetes.default.svc'
