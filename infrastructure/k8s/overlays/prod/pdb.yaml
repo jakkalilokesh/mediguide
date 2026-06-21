@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mediguide-pdb
+  namespace: mediguide
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: mediguide

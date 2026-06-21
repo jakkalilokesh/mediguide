@@ -1,0 +1,47 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mediguide-alerts
+  namespace: mediguide
+  labels:
+    role: alert-rules
+    prometheus: k8s
+spec:
+  groups:
+    - name: mediguide-app.rules
+      rules:
+        - alert: MediGuideDBConnectionFailure
+          expr: mediguide_db_pool_status == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "MediGuide Database connection failed"
+            description: "The connection pool check SELECT 1 is failing. Backend is unable to query MySQL."
+
+        - alert: MediGuideHighErrorRate
+          expr: sum(rate(http_request_duration_seconds_count{code=~"5.."}[5m])) / sum(rate(http_request_duration_seconds_count[5m])) * 100 > 5
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "MediGuide High HTTP 5xx error rate"
+            description: "HTTP 5xx responses represent over 5% of total requests on backend for the last 5 minutes."
+
+        - alert: MediGuideHighLatency
+          expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "MediGuide 95th Percentile Latency exceeded 2 seconds"
+            description: "95% of HTTP requests are taking more than 2 seconds to complete for the last 5 minutes."
+
+        - alert: MediGuideLLMFallbackExhaustion
+          expr: sum(rate(mediguide_llm_calls_total{status="failure"}[5m])) by (provider) > 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "MediGuide LLM provider failed, fallback triggered"
+            description: "LLM Provider {{ $labels.provider }} is failing requests. System is utilizing secondary fallbacks."

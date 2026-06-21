@@ -1,0 +1,141 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "HTTP Request Volume & Code Status",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(http_request_duration_seconds_count[5m])) by (code)",
+          "legendFormat": "HTTP {{code}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "title": "95th Percentile Latency (p95)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95 Latency",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "title": "Cache Hit/Miss Rates",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(mediguide_cache_requests_total[5m])) by (result)",
+          "legendFormat": "Cache {{result}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
+      "id": 4,
+      "title": "LLM Provider Calls (Success vs Failure)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(mediguide_llm_calls_total[5m])) by (provider, status)",
+          "legendFormat": "{{provider}} ({{status}})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "id": 5,
+      "title": "Database Pool Connection Status",
+      "type": "state-timeline",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "mediguide_db_pool_status",
+          "legendFormat": "DB Health (1=OK, 0=Fail)",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["mediguide", "production"],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m"
+    ]
+  },
+  "timezone": "",
+  "title": "MediGuide Production Performance Dashboard",
+  "version": 1
+}

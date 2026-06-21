@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mediguide
+  namespace: mediguide
+  labels:
+    app: mediguide
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mediguide
+  template:
+    metadata:
+      labels:
+        app: mediguide
+    spec:
+      serviceAccountName: mediguide-sa
+      containers:
+        - name: mediguide
+          image: mediguide:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: mediguide-config
+            - secretRef:
+                name: mediguide-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3

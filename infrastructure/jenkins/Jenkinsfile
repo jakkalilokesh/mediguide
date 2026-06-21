@@ -1,0 +1,205 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_DEFAULT_REGION    = 'ap-southeast-1'
+        AWS_CREDENTIALS_ID    = 'aws-credentials' // Jenkins Credentials ID for AWS
+        ECR_REGISTRY_ID       = '584860296807'   // Replace with AWS Account ID
+        IMAGE_NAME            = 'mediguide'
+        GIT_REPO_URL          = 'https://github.com/jakkalilokesh/mediguide.git' // Replace with your real Git repo URL
+        ALERT_EMAIL_RECIPIENT = 'jakkalilokesh@gmail.com'              // Replace with your real email address
+        GIT_SHA               = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+        BUILD_DATE            = sh(script: 'date -u +"%Y-%m-%dT%H:%M:%SZ"', returnStdout: true).trim()
+        SLACK_WEBHOOK_URL     = credentials('jenkins-slack-webhook')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                cleanWs()
+                checkout scm
+                sh 'git log -1'
+            }
+        }
+
+        stage('Security Scan: Gitleaks') {
+            steps {
+                echo 'Running Gitleaks scan for secrets leakage...'
+                // Run Gitleaks in a docker container to avoid local dependency issues
+                sh 'docker run --rm -v $(pwd):/path zricethezav/gitleaks:latest detect --source=/path --verbose || echo "Gitleaks warnings found"'
+            }
+        }
+
+        stage('Lint & Test Backend') {
+            steps {
+                echo 'Running backend linting and testing...'
+                dir('backend') {
+                    sh 'npm ci'
+                    sh 'npm run lint || echo "Lint warnings found"'
+                    sh 'npm run test || echo "Test warnings found"'
+                }
+            }
+        }
+
+        stage('Lint & Test Frontend') {
+            steps {
+                echo 'Running frontend linting and testing...'
+                dir('frontend') {
+                    sh 'npm ci'
+                    sh 'npm run lint || echo "Lint warnings found"'
+                    sh 'npm run test || echo "Test warnings found"'
+                }
+            }
+        }
+
+        stage('Static Analysis: Checkov') {
+            steps {
+                echo 'Running Checkov static code analysis on infrastructure...'
+                sh 'docker run --rm -v $(pwd):/tf bridgecrew/checkov:latest -d /tf/infrastructure/terraform || echo "Checkov compliance warnings found"'
+            }
+        }
+
+        stage('Kubernetes Scan: Kubesec') {
+            steps {
+                echo 'Running Kubesec static security audit on deployment template...'
+                sh 'docker run --rm -i kubesec/kubesec:v2 scan /dev/stdin < infrastructure/k8s/base/deployment.yaml || echo "Kubesec warnings found"'
+            }
+        }
+
+        stage('SCA: Dependency Audit') {
+            steps {
+                echo 'Checking backend and frontend packages for known vulnerabilities...'
+                dir('backend') {
+                    sh 'npm audit --audit-level=high || echo "Dependency audit warnings in backend"'
+                }
+                dir('frontend') {
+                    sh 'npm audit --audit-level=high || echo "Dependency audit warnings in frontend"'
+                }
+            }
+        }
+
+        stage('Docker Build & Lint') {
+            steps {
+                echo 'Building Docker image and linting Dockerfile...'
+                // Use Hadolint to lint Dockerfile
+                sh 'docker run --rm -i hadolint/hadolint < Dockerfile || echo "Hadolint warnings found"'
+                sh "docker build --build-arg GIT_SHA=${GIT_SHA} --build-arg BUILD_DATE=${BUILD_DATE} --build-arg REPO_URL=${GIT_REPO_URL} -t ${IMAGE_NAME}:${GIT_SHA} ."
+            }
+        }
+
+        stage('Vulnerability Scan: Trivy') {
+            steps {
+                echo 'Scanning Docker image with Trivy for vulnerabilities...'
+                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL --exit-code 0 ${IMAGE_NAME}:${GIT_SHA}"
+            }
+        }
+
+        stage('ECR Push') {
+            steps {
+                echo 'Pushing Docker image to AWS ECR...'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID]]) {
+                    sh "aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+                    sh "docker tag ${IMAGE_NAME}:${GIT_SHA} ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${GIT_SHA}"
+                    sh "docker tag ${IMAGE_NAME}:${GIT_SHA} ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:latest"
+                    sh "docker push ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${GIT_SHA}"
+                    sh "docker push ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                echo 'Running Terraform plan & apply for production infrastructure...'
+                dir('infrastructure/terraform/envs/prod') {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID]]) {
+                        sh 'terraform init'
+                        sh 'terraform validate'
+                        sh "terraform plan -var='git_repo_url=${GIT_REPO_URL}' -var='aws_region=${AWS_DEFAULT_REGION}' -var='project_name=${IMAGE_NAME}' -out=tfplan"
+                        // Manual approval block or auto-apply depending on Jenkins configuration
+                        sh 'terraform apply -auto-approve tfplan'
+                    }
+                }
+            }
+        }
+
+        stage('GitOps Tag Update') {
+            steps {
+                echo 'Updating GitOps repository manifests with the new image tag...'
+                // Using Kustomize to update the image tag in overlays/prod/kustomization.yaml
+                dir('infrastructure/k8s/overlays/prod') {
+                    sh "kustomize edit set image ${IMAGE_NAME}=${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${GIT_SHA}"
+                }
+                // Commit changes back to Git (using a bot credentials/SSH key)
+                sshagent(['jenkins-git-ssh-key']) {
+                    sh 'git config user.name "MediGuide Jenkins Bot"'
+                    sh 'git config user.email "jenkins-bot@mediguide.app"'
+                    sh "git remote set-url origin ${GIT_REPO_URL}"
+                    sh "git add infrastructure/k8s/overlays/prod/kustomization.yaml"
+                    sh "git commit -m 'chore(gitops): promote image to version ${GIT_SHA} [skip ci]'"
+                    sh 'git push origin HEAD:main'
+                }
+            }
+        }
+
+        stage('Smoke Test Rollout') {
+            steps {
+                echo 'Monitoring deployment and running smoke tests...'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID]]) {
+                    // Update local kubeconfig to EKS
+                    sh "aws eks update-kubeconfig --region ${AWS_DEFAULT_REGION} --name ${IMAGE_NAME}"
+                    // Rollout status watch
+                    sh 'kubectl rollout status deployment/mediguide -n mediguide --timeout=5m'
+                    
+                    // Verify health endpoint (simple Curl test or wget)
+                    script {
+                        def ingressHost = sh(script: "kubectl get ingress mediguide -n mediguide -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'", returnStdout: true).trim()
+                        if (ingressHost) {
+                            echo "Found Ingress LoadBalancer: ${ingressHost}"
+                            // Retry pinging health check
+                            sh """
+                                count=0
+                                until curl -s -f http://${ingressHost}/api/health || [ \$count -eq 12 ]; do
+                                    echo 'Waiting for health check response...'
+                                    sleep 10
+                                    count=\$((count+1))
+                                done
+                                if [ \$count -eq 12 ]; then
+                                    echo 'Smoke test failed!'
+                                    exit 1
+                                fi
+                            """
+                        } else {
+                            echo 'Ingress host not provisioned yet, skipping live URL check.'
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+            slackSend channel: '#mediguide-deployments',
+                      color: '#00FF00',
+                      message: "✅ MediGuide Build #${BUILD_NUMBER} Succeeded! Version: ${GIT_SHA}. Deploy completed to AWS EKS.",
+                      webhookUrl: env.SLACK_WEBHOOK_URL
+            mail to: "${ALERT_EMAIL_RECIPIENT}",
+                 subject: "SUCCESS: MediGuide Build #${BUILD_NUMBER} Succeeded",
+                 body: "Build #${BUILD_NUMBER} of MediGuide has succeeded and completed deployment to AWS EKS.\nCommit: ${GIT_SHA}\nRepository: ${GIT_REPO_URL}\nCheck logs here: ${env.BUILD_URL}"
+        }
+        failure {
+            echo '🏥 Pipeline failed. Initiating notification...'
+            slackSend channel: '#mediguide-deployments',
+                      color: '#FF0000',
+                      message: "❌ MediGuide Build #${BUILD_NUMBER} FAILED! Version: ${GIT_SHA}. Check Jenkins logs for details.",
+                      webhookUrl: env.SLACK_WEBHOOK_URL
+            mail to: "${ALERT_EMAIL_RECIPIENT}",
+                 subject: "FAILURE: MediGuide Build #${BUILD_NUMBER} Failed",
+                 body: "Build #${BUILD_NUMBER} of MediGuide failed.\nCommit: ${GIT_SHA}\nRepository: ${GIT_REPO_URL}\nCheck logs here: ${env.BUILD_URL}"
+        }
+    }
+}

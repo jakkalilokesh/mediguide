@@ -1,0 +1,19 @@
+# AWS Region
+aws_region = "us-east-1"
+
+# Project identification tags
+project_name = "mediguide"
+environment  = "prod"
+
+# Networking configuration
+vpc_cidr           = "10.0.0.0/16"
+single_nat_gateway = true # Set to false for high-availability Multi-NAT setup
+
+# RDS Instance sizing
+db_instance_class    = "db.t3.micro"
+db_allocated_storage = 20
+db_multi_az          = false # Set to true to enable HA Multi-AZ deployment (cost alert: doubles DB cost)
+
+# EKS Cluster config
+k8s_version        = "1.28"
+node_instance_type = "t3.medium"

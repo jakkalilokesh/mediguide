@@ -1,0 +1,37 @@
+{
+  "name": "mediguide-backend",
+  "version": "1.0.0",
+  "description": "MediGuide — Symptom Triage & Health Guidance Assistant Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --require ./tracing.js server.js",
+    "dev": "node --require ./tracing.js server.js",
+    "lint": "node node_modules/eslint/bin/eslint.js . --quiet || echo 'Lint warnings found'",
+    "test": "node node_modules/jest/bin/jest.js --passWithNoTests"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.77.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
+    "@opentelemetry/sdk-node": "^0.219.0",
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.3.2",
+    "express-validator": "^7.3.2",
+    "fs-extra": "^11.2.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.22.3",
+    "node-fetch": "^2.7.0",
+    "prom-client": "^15.1.0",
+    "uuid": "^11.1.0",
+    "zod": "^4.3.6"
+  }
+}

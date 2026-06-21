@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mediguide-mysql-dev
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword123
+      MYSQL_DATABASE: ${DB_NAME:-mediguidedb}
+      MYSQL_USER: ${DB_USER:-mediguide}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-securepassword123}
+    ports:
+      - "3307:3306" # Map to 3307 on host to avoid port 3306 conflicts
+    volumes:
+      - mysql-dev-data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DB_USER:-mediguide}", "-p${DB_PASSWORD:-securepassword123}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mediguide:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mediguide-app-dev
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=development # Dev mode allows live feedback/logging
+      - DB_HOST=mysql
+      - DB_USER=${DB_USER:-mediguide}
+      - DB_PASSWORD=${DB_PASSWORD:-securepassword123}
+      - DB_NAME=${DB_NAME:-mediguidedb}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_MODEL=${GOOGLE_MODEL}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL}
+      - PRIMARY_PROVIDER=${PRIMARY_PROVIDER}
+      - JWT_SECRET=${JWT_SECRET:-mG9dF4kP2wX7rB8vQ5jL1nY6hA3cE0sT}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:5173,http://localhost:5000}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mysql-dev-data:

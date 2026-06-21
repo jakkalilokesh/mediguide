@@ -1,0 +1,61 @@
+# ==============================================================================
+# WARNING: This Docker Compose setup is intended for LOCAL SMOKE TESTING ONLY.
+# In actual production environments, MediGuide is deployed on AWS EKS with an
+# external, managed AWS RDS MySQL database. Do not use this compose file for
+# live hosting or production traffic.
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mediguide-mysql-staging
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword123
+      MYSQL_DATABASE: mediguidedb
+      MYSQL_USER: mediguide
+      MYSQL_PASSWORD: securepassword123
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-staging-data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "mediguide", "-psecurepassword123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mediguide:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mediguide-app-staging
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - DB_HOST=mysql
+      - DB_USER=mediguide
+      - DB_PASSWORD=securepassword123
+      - DB_NAME=mediguidedb
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GOOGLE_MODEL=${GOOGLE_MODEL:-gemini-1.5-flash}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
+      - PRIMARY_PROVIDER=${PRIMARY_PROVIDER:-groq}
+      - JWT_SECRET=${JWT_SECRET:-mG9dF4kP2wX7rB8vQ5jL1nY6hA3cE0sT}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:5000}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mysql-staging-data:

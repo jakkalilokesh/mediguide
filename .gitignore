@@ -1,0 +1,28 @@
+node_modules/
+.env
+backend/.env
+*.env.local
+dist/
+frontend/dist/
+.dist/
+
+# Database
+backend/db/*.db*
+backend/db/mediguide.db
+backend/db/mediguide.db-shm
+backend/db/mediguide.db-wal
+
+# Session data
+backend/memory/sessions.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

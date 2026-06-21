@@ -1,0 +1,162 @@
+/* ── Skeleton Loader ── */
+.skeleton-container {
+    padding: 16px 0;
+    animation: skeletonFadeIn .3s ease;
+}
+
+.skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.skeleton-card {
+    padding: 20px;
+    border-radius: var(--r-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+}
+
+.skeleton-header {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.skeleton-section {
+    margin-bottom: 16px;
+}
+
+.skeleton-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 12px 0;
+    opacity: .5;
+}
+
+.skeleton-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.skeleton-line {
+    background: linear-gradient(90deg, var(--border) 25%, rgba(255, 255, 255, .08) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s ease-in-out infinite;
+    border-radius: var(--r-sm);
+}
+
+.skeleton-badge {
+    width: 120px;
+    height: 26px;
+}
+
+.skeleton-badge-sm {
+    width: 90px;
+    height: 26px;
+}
+
+.skeleton-category {
+    width: 180px;
+    height: 16px;
+    margin-bottom: 8px;
+}
+
+.skeleton-heading {
+    width: 200px;
+    height: 20px;
+    margin-bottom: 10px;
+}
+
+.skeleton-text-full {
+    width: 100%;
+    height: 14px;
+    margin-bottom: 8px;
+}
+
+.skeleton-text-90 {
+    width: 90%;
+    height: 14px;
+    margin-bottom: 8px;
+}
+
+.skeleton-text-80 {
+    width: 80%;
+    height: 14px;
+    margin-bottom: 8px;
+}
+
+.skeleton-text-70 {
+    width: 70%;
+    height: 14px;
+    margin-bottom: 8px;
+}
+
+.skeleton-text-60 {
+    width: 60%;
+    height: 14px;
+    margin-bottom: 8px;
+}
+
+.skeleton-title {
+    width: 60%;
+    height: 16px;
+    margin-bottom: 6px;
+}
+
+.skeleton-text {
+    width: 80%;
+    height: 12px;
+}
+
+.skeleton-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+}
+
+.skeleton-btn {
+    width: 120px;
+    height: 32px;
+}
+
+@keyframes skeletonShimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+@keyframes skeletonFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* Screen reader only */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 768px) {
+    .skeleton-grid {
+        grid-template-columns: 1fr;
+    }
+}
