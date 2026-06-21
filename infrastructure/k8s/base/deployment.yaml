@@ -6,7 +6,6 @@ metadata:
   labels:
     app: mediguide
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: mediguide
@@ -19,7 +18,7 @@ spec:
       containers:
         - name: mediguide
           image: mediguide:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 5000
               name: http
