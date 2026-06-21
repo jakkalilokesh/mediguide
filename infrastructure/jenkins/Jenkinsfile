@@ -177,7 +177,7 @@ pipeline {
                             // Retry pinging health check
                             sh """
                                 count=0
-                                until curl -s -f -H 'Host: mediguide.app' http://${ingressHost}/api/health || [ \$count -eq 12 ]; do
+                                until curl -s -f http://${ingressHost}/api/health || [ \$count -eq 12 ]; do
                                     echo 'Waiting for health check response...'
                                     sleep 10
                                     count=\$((count+1))

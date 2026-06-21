@@ -10,8 +10,7 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 spec:
   rules:
-    - host: mediguide.app
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix
