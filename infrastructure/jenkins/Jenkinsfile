@@ -8,9 +8,6 @@ pipeline {
         IMAGE_NAME            = 'mediguide'
         GIT_REPO_URL          = 'https://github.com/jakkalilokesh/mediguide.git' // Replace with your real Git repo URL
         ALERT_EMAIL_RECIPIENT = 'jakkalilokesh@gmail.com'              // Replace with your real email address
-        GIT_SHA               = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-        BUILD_DATE            = sh(script: 'date -u +"%Y-%m-%dT%H:%M:%SZ"', returnStdout: true).trim()
-        SLACK_WEBHOOK_URL     = credentials('jenkins-slack-webhook')
     }
 
     stages {
@@ -19,6 +16,10 @@ pipeline {
                 cleanWs()
                 checkout scm
                 sh 'git log -1'
+                script {
+                    env.GIT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.BUILD_DATE = sh(script: 'date -u +"%Y-%m-%dT%H:%M:%SZ"', returnStdout: true).trim()
+                }
             }
         }
 
@@ -83,14 +84,14 @@ pipeline {
                 echo 'Building Docker image and linting Dockerfile...'
                 // Use Hadolint to lint Dockerfile
                 sh 'docker run --rm -i hadolint/hadolint < Dockerfile || echo "Hadolint warnings found"'
-                sh "docker build --build-arg GIT_SHA=${GIT_SHA} --build-arg BUILD_DATE=${BUILD_DATE} --build-arg REPO_URL=${GIT_REPO_URL} -t ${IMAGE_NAME}:${GIT_SHA} ."
+                sh "docker build --build-arg GIT_SHA=${env.GIT_SHA} --build-arg BUILD_DATE=${env.BUILD_DATE} --build-arg REPO_URL=${GIT_REPO_URL} -t ${IMAGE_NAME}:${env.GIT_SHA} ."
             }
         }
 
         stage('Vulnerability Scan: Trivy') {
             steps {
                 echo 'Scanning Docker image with Trivy for vulnerabilities...'
-                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL --exit-code 0 ${IMAGE_NAME}:${GIT_SHA}"
+                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL --exit-code 0 ${IMAGE_NAME}:${env.GIT_SHA}"
             }
         }
 
@@ -99,9 +100,9 @@ pipeline {
                 echo 'Pushing Docker image to AWS ECR...'
                 withCredentials([usernamePassword(credentialsId: env.AWS_CREDENTIALS_ID, usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh "aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
-                    sh "docker tag ${IMAGE_NAME}:${GIT_SHA} ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${GIT_SHA}"
-                    sh "docker tag ${IMAGE_NAME}:${GIT_SHA} ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:latest"
-                    sh "docker push ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${GIT_SHA}"
+                    sh "docker tag ${IMAGE_NAME}:${env.GIT_SHA} ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${env.GIT_SHA}"
+                    sh "docker tag ${IMAGE_NAME}:${env.GIT_SHA} ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:latest"
+                    sh "docker push ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${env.GIT_SHA}"
                     sh "docker push ${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:latest"
                 }
             }
@@ -127,16 +128,19 @@ pipeline {
                 echo 'Updating GitOps repository manifests with the new image tag...'
                 // Using Kustomize to update the image tag in overlays/prod/kustomization.yaml
                 dir('infrastructure/k8s/overlays/prod') {
-                    sh "kustomize edit set image ${IMAGE_NAME}=${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${GIT_SHA}"
+                    sh "kustomize edit set image ${IMAGE_NAME}=${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${env.GIT_SHA}"
                 }
                 catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                    sshagent(['jenkins-git-ssh-key']) {
-                        sh 'git config user.name "MediGuide Jenkins Bot"'
-                        sh 'git config user.email "jenkins-bot@mediguide.app"'
-                        sh "git remote set-url origin ${GIT_REPO_URL}"
-                        sh "git add infrastructure/k8s/overlays/prod/kustomization.yaml"
-                        sh "git commit -m 'chore(gitops): promote image to version ${GIT_SHA} [skip ci]'"
-                        sh 'git push origin HEAD:main'
+                    script {
+                        def gitPushUrl = env.GIT_REPO_URL.replace("https://github.com/", "git@github.com:")
+                        sshagent(['jenkins-git-ssh-key']) {
+                            sh 'git config user.name "MediGuide Jenkins Bot"'
+                            sh 'git config user.email "jenkins-bot@mediguide.app"'
+                            sh "git remote set-url origin ${gitPushUrl}"
+                            sh "git add infrastructure/k8s/overlays/prod/kustomization.yaml"
+                            sh "git commit -m 'chore(gitops): promote image to version ${env.GIT_SHA} [skip ci]'"
+                            sh 'git push origin HEAD:main'
+                        }
                     }
                 }
             }
@@ -148,12 +152,26 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: env.AWS_CREDENTIALS_ID, usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     // Update local kubeconfig to EKS
                     sh "aws eks update-kubeconfig --region ${AWS_DEFAULT_REGION} --name ${IMAGE_NAME}"
+                    // Wait for deployment resource to be created in the cluster by GitOps (ArgoCD)
+                    sh """
+                        echo 'Waiting for deployment/mediguide resource to exist...'
+                        count=0
+                        until kubectl get deployment/mediguide -n mediguide || [ \$count -eq 30 ]; do
+                            echo 'Waiting for resource creation...'
+                            sleep 10
+                            count=\$((count+1))
+                        done
+                        if [ \$count -eq 30 ]; then
+                            echo 'Deployment/mediguide resource not found in time!'
+                            exit 1
+                        fi
+                    """
                     // Rollout status watch
                     sh 'kubectl rollout status deployment/mediguide -n mediguide --timeout=5m'
                     
                     // Verify health endpoint (simple Curl test or wget)
                     script {
-                        def ingressHost = sh(script: "kubectl get ingress mediguide -n mediguide -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'", returnStdout: true).trim()
+                        def ingressHost = sh(script: "kubectl get ingress mediguide -n mediguide -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true", returnStdout: true).trim()
                         if (ingressHost) {
                             echo "Found Ingress LoadBalancer: ${ingressHost}"
                             // Retry pinging health check
@@ -180,19 +198,22 @@ pipeline {
 
     post {
         always {
-            cleanWs()
+            echo 'Pipeline execution finished.'
         }
         success {
             echo 'Pipeline completed successfully!'
             mail to: "${ALERT_EMAIL_RECIPIENT}",
                  subject: "SUCCESS: MediGuide Build #${BUILD_NUMBER} Succeeded",
-                 body: "Build #${BUILD_NUMBER} of MediGuide has succeeded and completed deployment to AWS EKS.\nCommit: ${GIT_SHA}\nRepository: ${GIT_REPO_URL}\nCheck logs here: ${env.BUILD_URL}"
+                 body: "Build #${BUILD_NUMBER} of MediGuide has succeeded and completed deployment to AWS EKS.\nCommit: ${env.GIT_SHA}\nRepository: ${GIT_REPO_URL}\nCheck logs here: ${env.BUILD_URL}"
         }
         failure {
             echo '🏥 Pipeline failed. Initiating notification...'
             mail to: "${ALERT_EMAIL_RECIPIENT}",
                  subject: "FAILURE: MediGuide Build #${BUILD_NUMBER} Failed",
-                 body: "Build #${BUILD_NUMBER} of MediGuide failed.\nCommit: ${GIT_SHA}\nRepository: ${GIT_REPO_URL}\nCheck logs here: ${env.BUILD_URL}"
+                 body: "Build #${BUILD_NUMBER} of MediGuide failed.\nCommit: ${env.GIT_SHA}\nRepository: ${GIT_REPO_URL}\nCheck logs here: ${env.BUILD_URL}"
+        }
+        cleanup {
+            cleanWs()
         }
     }
 }
