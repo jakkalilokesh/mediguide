@@ -175,10 +175,7 @@ module "irsa_alb" {
           "elasticloadbalancing:AddTags",
           "elasticloadbalancing:RemoveTags"
         ]
-        Resource = [
-          "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*",
-          "arn:aws:elasticloadbalancing:*:*:loadbalancer/*/*"
-        ]
+        Resource = "*"
       },
       {
         Effect = "Allow"
