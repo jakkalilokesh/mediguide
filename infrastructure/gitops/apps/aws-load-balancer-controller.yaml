@@ -19,6 +19,8 @@ spec:
           value: aws-load-balancer-controller
         - name: 'serviceAccount.annotations.eks\.amazonaws\.com/role-arn'
           value: arn:aws:iam::584860296807:role/mediguide-alb-controller
+        - name: vpcId
+          value: vpc-0c1b847e60335ea7a
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: kube-system

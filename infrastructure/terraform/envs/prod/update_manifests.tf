@@ -109,6 +109,8 @@ spec:
           value: aws-load-balancer-controller
         - name: 'serviceAccount.annotations.eks\.amazonaws\.com/role-arn'
           value: ${module.irsa_alb.role_arn}
+        - name: vpcId
+          value: ${module.vpc.vpc_id}
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: kube-system
