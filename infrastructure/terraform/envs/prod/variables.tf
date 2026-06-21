@@ -42,7 +42,7 @@ variable "k8s_version" {
 
 variable "node_instance_type" {
   type        = string
-  default     = "t3.medium"
+  default     = "t3.micro"
   description = "Instance type for EKS worker nodes"
 }
 
