@@ -36,7 +36,7 @@ variable "db_allocated_storage" {
 
 variable "k8s_version" {
   type        = string
-  default     = "1.28"
+  default     = "1.31"
   description = "Target Kubernetes version for EKS"
 }
 
