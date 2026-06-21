@@ -73,10 +73,10 @@ resource "aws_db_instance" "mysql" {
   db_subnet_group_name        = aws_db_subnet_group.db_subnet.name
   vpc_security_group_ids      = [aws_security_group.db.id]
   parameter_group_name        = aws_db_parameter_group.mysql.name
-  backup_retention_period     = 7
+  backup_retention_period     = 0
   backup_window               = "03:00-04:00" # UTC backup window
   maintenance_window          = "Sun:04:30-Sun:05:30"
-  copy_tags_to_snapshot       = true
+  copy_tags_to_snapshot       = false
   skip_final_snapshot         = true # Set to false in actual production to avoid accidental data loss on destroy.
   auto_minor_version_upgrade  = true
 
