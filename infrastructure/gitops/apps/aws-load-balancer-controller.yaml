@@ -18,7 +18,7 @@ spec:
         - name: serviceAccount.name
           value: aws-load-balancer-controller
         - name: serviceAccount.annotations."eks\.amazonaws\.com/role-arn"
-          value: arn:aws:iam::xxxxxxxxxxxx:role/mediguide-alb-controller
+          value: arn:aws:iam::584860296807:role/mediguide-alb-controller
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: kube-system

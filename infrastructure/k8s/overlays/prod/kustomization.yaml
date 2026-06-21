@@ -22,5 +22,4 @@ patches:
       metadata:
         name: mediguide-sa
         annotations:
-          # REPLACE WITH ACTUAL ROLE ARN PROVISIONED BY TERRAFORM:
-          eks.amazonaws.com/role-arn: "arn:aws:iam::xxxxxxxxxxxx:role/mediguide-external-secrets"
+          eks.amazonaws.com/role-arn: "arn:aws:iam::584860296807:role/mediguide-external-secrets"
