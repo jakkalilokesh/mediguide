@@ -183,20 +183,12 @@ pipeline {
         }
         success {
             echo 'Pipeline completed successfully!'
-            slackSend channel: '#mediguide-deployments',
-                      color: '#00FF00',
-                      message: "✅ MediGuide Build #${BUILD_NUMBER} Succeeded! Version: ${GIT_SHA}. Deploy completed to AWS EKS.",
-                      webhookUrl: env.SLACK_WEBHOOK_URL
             mail to: "${ALERT_EMAIL_RECIPIENT}",
                  subject: "SUCCESS: MediGuide Build #${BUILD_NUMBER} Succeeded",
                  body: "Build #${BUILD_NUMBER} of MediGuide has succeeded and completed deployment to AWS EKS.\nCommit: ${GIT_SHA}\nRepository: ${GIT_REPO_URL}\nCheck logs here: ${env.BUILD_URL}"
         }
         failure {
             echo '🏥 Pipeline failed. Initiating notification...'
-            slackSend channel: '#mediguide-deployments',
-                      color: '#FF0000',
-                      message: "❌ MediGuide Build #${BUILD_NUMBER} FAILED! Version: ${GIT_SHA}. Check Jenkins logs for details.",
-                      webhookUrl: env.SLACK_WEBHOOK_URL
             mail to: "${ALERT_EMAIL_RECIPIENT}",
                  subject: "FAILURE: MediGuide Build #${BUILD_NUMBER} Failed",
                  body: "Build #${BUILD_NUMBER} of MediGuide failed.\nCommit: ${GIT_SHA}\nRepository: ${GIT_REPO_URL}\nCheck logs here: ${env.BUILD_URL}"
