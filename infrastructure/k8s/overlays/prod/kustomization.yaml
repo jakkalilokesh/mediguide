@@ -23,3 +23,8 @@ patches:
         name: mediguide-sa
         annotations:
           eks.amazonaws.com/role-arn: "arn:aws:iam::584860296807:role/mediguide-external-secrets"
+
+images:
+  - name: mediguide
+    newName: 584860296807.dkr.ecr.ap-southeast-1.amazonaws.com/mediguide
+    newTag: latest
