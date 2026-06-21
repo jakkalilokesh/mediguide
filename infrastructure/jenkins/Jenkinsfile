@@ -129,14 +129,15 @@ pipeline {
                 dir('infrastructure/k8s/overlays/prod') {
                     sh "kustomize edit set image ${IMAGE_NAME}=${ECR_REGISTRY_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_NAME}:${GIT_SHA}"
                 }
-                // Commit changes back to Git (using a bot credentials/SSH key)
-                sshagent(['jenkins-git-ssh-key']) {
-                    sh 'git config user.name "MediGuide Jenkins Bot"'
-                    sh 'git config user.email "jenkins-bot@mediguide.app"'
-                    sh "git remote set-url origin ${GIT_REPO_URL}"
-                    sh "git add infrastructure/k8s/overlays/prod/kustomization.yaml"
-                    sh "git commit -m 'chore(gitops): promote image to version ${GIT_SHA} [skip ci]'"
-                    sh 'git push origin HEAD:main'
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    sshagent(['jenkins-git-ssh-key']) {
+                        sh 'git config user.name "MediGuide Jenkins Bot"'
+                        sh 'git config user.email "jenkins-bot@mediguide.app"'
+                        sh "git remote set-url origin ${GIT_REPO_URL}"
+                        sh "git add infrastructure/k8s/overlays/prod/kustomization.yaml"
+                        sh "git commit -m 'chore(gitops): promote image to version ${GIT_SHA} [skip ci]'"
+                        sh 'git push origin HEAD:main'
+                    }
                 }
             }
         }
